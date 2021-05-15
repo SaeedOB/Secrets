@@ -9,6 +9,7 @@ const session = require('express-session')
 const passport = require('passport')
 const passportLocalMongoose = require('passport-local-mongoose')
 const GoogleStrategy = require('passport-google-oauth20').Strategy
+const FacebookStrategy = require('passport-facebook').Strategy
 const findOrCreate = require('mongoose-findorcreate')
 
 // -- Setting up app express ---------------------------------------------------
@@ -41,7 +42,8 @@ mongoose.set("useCreateIndex", true)
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  facebookId : String
 });
 userSchema.plugin(passportLocalMongoose)
 userSchema.plugin(findOrCreate)
@@ -60,8 +62,8 @@ passport.deserializeUser(function(id, done) {
 });
 
 passport.use(new GoogleStrategy({
-    clientID: process.env.CLIENT_ID,
-    clientSecret: process.env.CLIENT_SECRET,
+    clientID: process.env.CLIENT_ID_GOOGLE,
+    clientSecret: process.env.CLIENT_SECRET_GOOGLE,
     callbackURL: "http://localhost:3000/auth/google/secrets",
     userProfileUrl: "https://www.googleapis.com/oauth2/v3/userinfo"
   },
@@ -69,6 +71,20 @@ passport.use(new GoogleStrategy({
     console.log(profile);
     User.findOrCreate({
       googleId: profile.id
+    }, function(err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+passport.use(new FacebookStrategy({
+    clientID: process.env.CLIENT_ID_FACEBOOK,
+    clientSecret: process.env.CLIENT_SECRET_FACEBOOK,
+    callbackURL: "https://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({
+      facebookId: profile.id
     }, function(err, user) {
       return cb(err, user);
     });
@@ -91,6 +107,19 @@ app.get('/auth/google/secrets',
   }),
   function(req, res) {
     // Successful authentication, redirect secrets page.
+    res.redirect('/secrets');
+  });
+
+app.get('/auth/facebook',
+  passport.authenticate('facebook'));
+
+app.get('/auth/facebook/secrets',
+  passport.authenticate('facebook', {
+    failureRedirect: '/login'
+  }),
+  function(req, res) {
+    console.log("we got here");
+    // Successful authentication, redirect home.
     res.redirect('/secrets');
   });
 
